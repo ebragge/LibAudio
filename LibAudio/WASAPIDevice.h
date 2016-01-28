@@ -15,7 +15,8 @@ namespace LibAudio
 	{
 	public:
 		WASAPIDevice();
-		void InitCaptureDevice(size_t i, DataCollector^ collector);
+		void InitCaptureDevice(size_t id, DataCollector^ collector);
+		bool Initialized() { return m_initialized; }
 
 		property String^ ID;
 		property String^ Name;
@@ -28,5 +29,7 @@ namespace LibAudio
 		property ComPtr<WASAPICapture>		Capture;
 		property DeviceStateChangedEvent^   StateChangedEvent;
 		property EventRegistrationToken		DeviceStateChangeToken;		
+
+		bool m_initialized;
 	};
 };

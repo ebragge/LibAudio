@@ -6,7 +6,6 @@ namespace LibAudio
 	class DeviceInfo
 	{
 	public:
-
 		DeviceInfo() : m_initialized(false), m_bytesPerSample(0), m_channels(0), m_lastuQPCPosition(0) {}
 
 		size_t GetChannels() const { return m_channels; }
@@ -31,7 +30,6 @@ namespace LibAudio
 		void SetPosition(UINT64 lastuQPCPosition) { m_lastuQPCPosition = lastuQPCPosition; }
 
 	private:
-
 		bool m_working;
 		bool m_initialized;
 		size_t m_channels;

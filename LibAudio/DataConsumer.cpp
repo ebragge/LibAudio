@@ -1,37 +1,70 @@
 #include "pch.h"
 #include "DataConsumer.h"
+#include "TDEAnalyzer.h"
+#include "DataAnalyzer.h"
 
-using namespace Windows::Storage;
 using namespace Windows::System::Threading;
 using namespace Platform;
 using namespace LibAudio;
 using namespace concurrency;
-using namespace TimeDelayEstimation;
+using namespace Windows::Foundation;
+using namespace Windows::System::Threading;
+using namespace Platform;
 
-DataConsumer::DataConsumer(size_t nDevices, DataCollector^ collector, UIDelegate^ func, TDEDevices^ devices, TDEParameters^ parameters) :
+DataConsumer::DataConsumer(size_t nDevices, DataCollector^ collector, UIDelegate1^ func1, UIDelegate2^ func2, AudioDevices^ devices, AudioParameters^ parameters) :
 	m_numberOfDevices(nDevices),
 	m_collector(collector),
-	m_uiHandler(func),
-	m_tick(0),
-	m_packetCounter(0),
-	m_discontinuityCounter(0),
-	m_dataRemovalCounter(0),
 	m_devParams(devices),
 	m_params(parameters),
-	m_delayTimer(nullptr)
+	m_delayTimer(nullptr),
+	m_running(true)
 {
 	m_devices = std::vector<DeviceInfo>(m_numberOfDevices);
 	m_audioDataFirst = std::vector<AudioDataPacket*>(m_numberOfDevices, NULL);
 	m_audioDataLast = std::vector<AudioDataPacket*>(m_numberOfDevices, NULL);
 
-	m_buffer = std::vector<std::vector<std::vector<TimeDelayEstimation::AudioDataItem>>>(m_numberOfDevices);
+	m_buffer = new std::vector<std::vector<std::vector<TimeDelayEstimation::AudioDataItem>>>(m_numberOfDevices);
+
+	for (int i = 0; i < MAX_TASKS; i++)
+	{
+		m_processTasks[i] = nullptr;
+	}
+	m_silenceCheck = m_params->SilenceCheck();
+
+	if (parameters->DataOnly())
+	{
+		m_sender = ref new HeartBeatSender(func2);
+		m_memoryR = ref new Array<int32>(TRANSFER_BUFFER);
+		m_timestampR = ref new Array<UINT64>(TRANSFER_BUFFER);
+
+		if (devices->Channels() > 1)
+		{
+			m_memoryL = ref new Array<int32>(TRANSFER_BUFFER);
+			m_timestampL = ref new Array<UINT64>(TRANSFER_BUFFER);
+		}
+		
+		m_analyzer = new DataAnalyzer(m_sender);
+	}
+	else
+	{
+		m_sender = ref new HeartBeatSender(func1);
+		
+		m_memoryR = nullptr;
+		m_memoryL = nullptr;
+		m_timestampR = nullptr;
+		m_timestampL = nullptr;
+
+		m_analyzer = new TDEAnalyzer(m_sender);
+	}
 }
 
 DataConsumer::~DataConsumer()
 {
-	Stop();
 	FlushBuffer();
 	FlushPackets();
+
+	delete m_analyzer;
+	delete m_buffer;
 }
 
 void DataConsumer::Start()
@@ -42,7 +75,7 @@ void DataConsumer::Start()
 	m_delayTimer = ThreadPoolTimer::CreatePeriodicTimer(
 		ref new TimerElapsedHandler([this](ThreadPoolTimer^ source)
 		{
-			if (Task == nullptr)
+			if (Task == nullptr && m_running)
 			{
 				AudioTask();
 			}
@@ -59,6 +92,21 @@ void DataConsumer::Stop()
 
 		Task = nullptr;
 		m_delayTimer = nullptr;
+
+		for (int i = 0; i < MAX_TASKS; i++)
+		{
+			if (m_processTasks[i] != nullptr) m_processTasks[i]->Cancel();
+		}
+	}
+}
+
+void DataConsumer::Continue()
+{
+	if (!m_running)
+	{
+		m_running = true;
+		FlushCollector();
+		m_collector->StoreData(true);
 	}
 }
 
@@ -70,7 +118,7 @@ HRESULT DataConsumer::Finish()
 
 void DataConsumer::AudioTask()
 {
-	auto workItemDelegate = [this](Windows::Foundation::IAsyncAction^ action) 
+	auto workItemDelegate = [this](IAsyncAction^ action) 
 	{ 
 		bool error = false;
 
@@ -80,7 +128,6 @@ void DataConsumer::AudioTask()
 			size_t count;
 
 			m_devices[i] = m_collector->RemoveData(i, &first, &last, &count, &error);
-			m_packetCounter += count;
 
 			if (m_audioDataLast[i] != NULL)
 			{
@@ -93,51 +140,50 @@ void DataConsumer::AudioTask()
 				m_audioDataLast[i] = last;
 			}
 		}
-		if (error) HeartBeat(0, HeartBeatType::DEVICE_ERROR);
+		if (error) m_sender->HeartBeat(0, HeartBeatType::DEVICE_ERROR);
 		bool loop = true;
 		bool msg = false;
+		
 		while (loop)
 		{
-			switch (HandlePackets())
+			switch (HandlePackets(m_silenceCheck))
 			{
 			case Status::ONLY_ONE_SAMPLE:
 				loop = false;
 				break;
 			case Status::EXCESS_DATA:
 			case Status::SILENCE:
-				m_dataRemovalCounter++;
-				break;
 			case Status::DISCONTINUITY:
 				FlushBuffer();
-				m_discontinuityCounter++;
 				break;
 			case Status::DATA_AVAILABLE:
+				m_silenceCheck = false;
 				loop = ProcessData(msg);
 				break;
 			}
-			if (action->Status == Windows::Foundation::AsyncStatus::Canceled) break;
+			if (action->Status == AsyncStatus::Canceled) break;
 		}
-		if (!msg) HeartBeat(2000, HeartBeatType::BUFFERING, m_devices[m_devParams->Device0()].GetPosition(), m_devices[m_devParams->Device1()].GetPosition(), (int)m_packetCounter, (int)m_discontinuityCounter, (int)m_dataRemovalCounter);
+		if (!msg) m_sender->HeartBeat(5000, HeartBeatType::BUFFERING);
 	};
 
-	auto completionDelegate = [this](Windows::Foundation::IAsyncAction^ action, Windows::Foundation::AsyncStatus status)
+	auto completionDelegate = [this](IAsyncAction^ action, Windows::Foundation::AsyncStatus status)
 	{
 		switch (action->Status)
 		{
-		case Windows::Foundation::AsyncStatus::Completed:
-		case Windows::Foundation::AsyncStatus::Error:
-		case Windows::Foundation::AsyncStatus::Canceled: Task = nullptr;
+		case AsyncStatus::Completed:
+		case AsyncStatus::Error:
+		case AsyncStatus::Canceled: Task = nullptr;
 		}
 	};
 
 	auto workItemHandler = ref new Windows::System::Threading::WorkItemHandler(workItemDelegate);
 	auto completionHandler = ref new Windows::Foundation::AsyncActionCompletedHandler(completionDelegate, Platform::CallbackContext::Same);
 
-	Task = Windows::System::Threading::ThreadPool::RunAsync(workItemHandler, Windows::System::Threading::WorkItemPriority::Low);
+	Task = Windows::System::Threading::ThreadPool::RunAsync(workItemHandler, Windows::System::Threading::WorkItemPriority::Normal);
 	Task->Completed = completionHandler;
 }
 
-DataConsumer::Status DataConsumer::HandlePackets()
+DataConsumer::Status DataConsumer::HandlePackets(bool silenceCheck)
 {
 	for (size_t i = 0; i < m_numberOfDevices; i++)
 	{
@@ -199,97 +245,96 @@ DataConsumer::Status DataConsumer::HandlePackets()
 	}
 	if (removedData) return Status::SILENCE;
 
+	bool silence = true;
 	for (size_t i = 0; i < m_numberOfDevices; i++)
 	{
 		AudioDataPacket* packet = m_audioDataFirst[i];
 		m_audioDataFirst[i] = packet->Next();
-		AddData(i, packet->Bytes(), packet->Data(), packet->Position(), packet->Next()->Position());
+		if (!AddData(i, packet->Bytes(), packet->Data(), packet->Position(), packet->Next()->Position(), silenceCheck))
+		{	
+			silence = false;
+		}
 		delete packet;
 	}
+	if (silence && silenceCheck) return Status::SILENCE;
+
 	return Status::DATA_AVAILABLE;
+}
+
+bool DataConsumer::AddData(size_t device, DWORD cbBytes, const BYTE* pData, UINT64 pos1, UINT64 pos2, bool silenceCheck)
+{
+	bool silence = true;
+	DWORD numPoints = cbBytes / (DWORD)(m_devices[device].GetChannels() * m_devices[device].GetBytesPerSample());
+	INT16 *pi16 = (INT16*)pData;
+	UINT64 delta = pos2 - pos1;
+	double d = (double)delta / numPoints;
+
+	size_t sz = m_devices[device].GetChannels();
+
+	if ((*m_buffer)[device].size() == 0)
+	{		
+		for (size_t ii = 0; ii < sz; ii++)
+		{
+			(*m_buffer)[device].push_back(std::vector<TimeDelayEstimation::AudioDataItem>(0));
+		}
+	}
+	for (DWORD i = 0; i < numPoints; i++)
+	{
+		UINT64 time_delta = UINT64((double)i * d);
+		for (size_t channel = 0; channel < sz; channel++)
+		{
+			if (silenceCheck && abs(*pi16) > (int)m_params->AudioThreshold())
+			{
+				silence = false;
+			}
+			
+			TimeDelayEstimation::AudioDataItem item(*pi16, pos1 + time_delta, i);
+			(*m_buffer)[device][channel].push_back(item);
+			pi16++;
+			
+			if (m_params->DataOnly())
+			{
+				if (device == m_devParams->Device(0) && channel == m_devParams->Channel(0))
+				{
+					m_memoryR[m_endR] = item.value;
+					m_timestampR[m_endR++] = item.timestamp;
+
+					if (m_endR == TRANSFER_BUFFER) m_endR = 0;
+				}
+				if (m_devParams->Channels() > 1 && device == m_devParams->Device(1) && channel == m_devParams->Channel(1))
+				{
+					m_memoryL[m_endL] = item.value;
+					m_timestampL[m_endL++] = item.timestamp;
+					if (m_endL == TRANSFER_BUFFER) m_endL = 0;
+				}
+			}
+		}
+	}
+	return silenceCheck && silence;
 }
 
 bool DataConsumer::ProcessData(bool& msg)
 {
-	size_t smallestBuffer = m_buffer[m_devParams->Device0()][m_devParams->Channel0()].size();
+	size_t smallestBuffer = (*m_buffer)[m_devParams->Device(0)][m_devParams->Channel(0)].size();
 	for (size_t i = 0; i < m_numberOfDevices; i++)
 	{
 		for (size_t j = 0; j < m_devices[i].GetChannels(); j++)
 		{
-			if (m_buffer[i][j].size() < smallestBuffer) smallestBuffer = m_buffer[i][j].size();
+			if ((*m_buffer)[i][j].size() < smallestBuffer) smallestBuffer = (*m_buffer)[i][j].size();
 		}
 	}
 
 	if (smallestBuffer > m_params->BufferSize())
 	{
-		if (m_params->Interrupt()) m_collector->StoreData(false);
-		UINT64 latestBegin = m_buffer[m_devParams->Device0()][m_devParams->Channel0()][0].timestamp;
-
-		for (size_t i = 0; i < m_numberOfDevices; i++)
-		{
-			for (size_t j = 0; j < m_devices[i].GetChannels(); j++)
-			{
-				if (m_buffer[i][j][0].timestamp > latestBegin) latestBegin = m_buffer[i][j][0].timestamp;
-			}
-		}
-
-		bool sample = false;
-		size_t pos = 0, sample_pos = 0;
-		uint32 threshold = m_params->AudioThreshold();
-		uint32 threshold0 = m_params->AudioThreshold()/2;
-
-		while (1) 
-		{ 
-			if (m_buffer[m_devParams->Device0()][m_devParams->Channel0()][pos].timestamp < latestBegin) pos++; else break;
-			if (pos == m_buffer[m_devParams->Device0()][m_devParams->Channel0()].size()) break;
-		}
-
-		ULONG64 sum = 0;
-		uint32 idx1 = m_devParams->Device0();
-		uint32 idx2 = m_devParams->Channel0();
-
-		uint32 maximum = 0;
-
-		while (pos < m_buffer[m_devParams->Device0()][m_devParams->Channel0()].size())
-		{
-			uint32 val = abs(m_buffer[idx1][idx2][pos].value);
-			if (val > maximum) maximum = val;
-
-			sum += val;
-			if (val > threshold)
-			{
-				sample_pos = pos;
-				sample = true;
-				while (val > threshold)
-				{
-					threshold0 = threshold;
-					threshold *= 2;
-				}
-			}
-			pos++;
-		}
-		uint32 average = (uint32)(sum / (ULONG64)m_buffer[m_devParams->Device0()][m_devParams->Channel0()].size());
-
-		UINT64 fts = m_buffer[m_devParams->Device0()][m_devParams->Channel0()][0].timestamp;
-		UINT64 lts = m_buffer[m_devParams->Device0()][m_devParams->Channel0()][m_buffer[m_devParams->Device0()][m_devParams->Channel0()].size() - 1].timestamp;
-
-		if (sample) // Calculate direction 
-		{
-			if (!CalculateTDE(min(smallestBuffer-(m_params->DelayWindow()+m_params->TDEWindow()),max(m_params->DelayWindow(),sample_pos + m_params->StartOffset())), average, maximum, fts, lts))
-			{
-				// Invalid data for direction calculation
-				HeartBeat(0, HeartBeatType::INVALID, fts, lts, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, maximum, 0, 0, 0, average);
-			}
-		}
-		else HeartBeat(0, HeartBeatType::SILENCE, fts, lts, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, maximum, 0, 0, 0, average);
-			
-		FlushBuffer();
-
 		if (m_params->Interrupt())
 		{
-			FlushCollector();
-			m_collector->StoreData(true);
+			m_collector->StoreData(false);
+			m_running = false;
 		}
+
+		HandleProcessTasks(smallestBuffer);
+		m_buffer = new AudioBuffer(m_numberOfDevices);
+
 		msg = true;
 		return false;
 	}
@@ -300,11 +345,11 @@ void DataConsumer::FlushPackets()
 {
 	for (size_t i = 0; i < m_numberOfDevices; i++)
 	{
-		while (m_audioDataFirst[i] != NULL) 
-		{ 
+		while (m_audioDataFirst[i] != NULL)
+		{
 			AudioDataPacket* ptr = m_audioDataFirst[i];
 			m_audioDataFirst[i] = ptr->Next();
-			delete ptr; 
+			delete ptr;
 		}
 		m_audioDataLast[i] = NULL;
 	}
@@ -314,14 +359,19 @@ void DataConsumer::FlushBuffer()
 {
 	for (size_t i = 0; i < m_numberOfDevices; i++)
 	{
-		if (m_buffer[i].size() != 0)
+		if ((*m_buffer)[i].size() != 0)
 		{
 			for (size_t j = 0; j < m_devices[i].GetChannels(); j++)
 			{
-				m_buffer[i][j].clear();
+				(*m_buffer)[i][j].clear();
 			}
 		}
 	}
+
+	m_endR = m_beginR;
+	m_endL = m_beginL;
+
+	m_silenceCheck = m_params->SilenceCheck();
 }
 
 void DataConsumer::FlushCollector()
@@ -332,239 +382,85 @@ void DataConsumer::FlushCollector()
 		size_t count;
 		bool error;
 		m_devices[i] = m_collector->RemoveData(i, &first, &last, &count, &error);
-		while (first != NULL) 
-		{	
+		while (first != NULL)
+		{
 			AudioDataPacket* ptr = first;
-			first = ptr->Next(); 
-			delete ptr; 
+			first = ptr->Next();
+			delete ptr;
 		}
 	}
 }
 
-void DataConsumer::AddData(size_t device, DWORD cbBytes, const BYTE* pData, UINT64 pos1, UINT64 pos2)
+void DataConsumer::HandleProcessTasks(size_t smallestBuffer)
 {
-	DWORD numPoints = cbBytes / (DWORD)(m_devices[device].GetChannels() * m_devices[device].GetBytesPerSample());
-	INT16 *pi16 = (INT16*)pData;
-	UINT64 delta = pos2 - pos1;
-	double d = (double)delta / numPoints;
-
-	size_t sz = m_devices[device].GetChannels();
-
-	if (m_buffer[device].size() == 0)
-	{		
-		for (size_t ii = 0; ii < sz; ii++)
+	for (int i = 0; i < MAX_TASKS; i++)
+	{
+		if (m_processTasks[i] == nullptr)
 		{
-			m_buffer[device].push_back(std::vector<TimeDelayEstimation::AudioDataItem>(2 * m_params->BufferSize()));
+			m_silenceCheck = true;
+			ProcessTask(i, m_numberOfDevices, m_devParams, m_params, m_devices, m_buffer, smallestBuffer);
+			ProcessTask(i, m_beginR, m_endR, m_beginL, m_endL, m_memoryR, m_memoryL, m_timestampR, m_timestampL);
+
+			m_beginR = m_endR;
+			m_beginL = m_endL;
+			
+			break;	
 		}
-	}
-	for (DWORD i = 0; i < numPoints; i++)
-	{
-		UINT64 time_delta = UINT64((double)i * d);
-		for (size_t j = 0; j < sz; j++)
+		else if (i == MAX_TASKS)
 		{
-			TimeDelayEstimation::AudioDataItem item(*pi16, pos1 + time_delta, i);
-			m_buffer[device][j].push_back(item);
-			pi16++;
+			FlushBuffer(); // no free tasks
+			delete m_buffer;
 		}
 	}
 }
 
-bool DataConsumer::CalculatePair(SignalData& data, int& delay1, int& delay2, int& delay3, CalcType& max0, CalcType& max1, CalcType& ave0, CalcType& ave1, DelayType& align)
+void DataConsumer::ProcessTask(int idx, size_t numberOfDevices, AudioDevices^ devParams, AudioParameters^ params, std::vector<DeviceInfo> devices, AudioBuffer* buffer, size_t smallestBuffer)
 {
-	DelayType align0, align1;
-
-	if (!data.CalculateAlignment(data.First(), &align0, NULL)) return false;
-	if (!data.CalculateAlignment(data.Last(), &align1, NULL)) return false;
-
-	align = (align0 + align1) / 2;
-	data.SetAlignment(align);
-
-	TimeDelayEstimation::TDE tde(m_params->DelayWindow(), data);
-
-	delay1 = tde.FindDelay(TimeDelayEstimation::Algorithm::CC);
-	delay2 = tde.FindDelay(TimeDelayEstimation::Algorithm::ASDF);
-	delay3 = tde.FindDelay(TimeDelayEstimation::Algorithm::PEAK);
-
-	tde.SampleInfo(max0, max1, ave0, ave1);
-
-	return true;
-}
-
-bool DataConsumer::CalculateTDE(size_t pos, uint32 average, uint32 maximum, UINT64 fts, UINT64 lts)
-{
-	if (m_devParams->MinDevices() == 3)
+	auto workItemDelegate = [this, numberOfDevices, devParams, params, devices, buffer, smallestBuffer](IAsyncAction^ action)
 	{
-		return CalculateTDE3(pos, average, maximum, fts, lts);
-	}
-	else return CalculateTDE2(pos, average, maximum, fts, lts);
-}
-
-bool DataConsumer::CalculateTDE2(size_t pos, uint32 average, uint32 maximum, UINT64 fts, UINT64 lts)
-{
-	int delay[3];
-	CalcType max[2];
-	CalcType ave[2];
-	DelayType align;
-
-	SignalData data0 = SignalData(&m_buffer[m_devParams->Device0()][m_devParams->Channel0()], &m_buffer[m_devParams->Device1()][m_devParams->Channel1()], pos, pos + m_params->TDEWindow(), false);
-
-	bool b0 = CalculatePair(data0, delay[0], delay[1], delay[2], max[0], max[1], ave[0], ave[1], align);
-
-	if (!b0) return false;
-
-	HeartBeat(0, HeartBeatType::DATA, fts, lts, delay[0], delay[1], delay[2], (int)align, 0, 0, 0, 0, 0, 0, 0, 0, maximum, (uint32)max[0], (uint32)max[1], 0, average, (uint32)ave[0], (uint32)ave[1], 0, m_devices[m_devParams->Device0()].GetSamplesPerSec());
-
-	if (StoreTask == nullptr && m_params->StoreSample() && (max[0] >= m_params->StoreThreshold() || max[1] >= m_params->StoreThreshold()))
-	{
-		Windows::Globalization::Calendar^ c = ref new Windows::Globalization::Calendar;
-		c->SetToNow();
-
-		Platform::String^ str = "TIME: " + c->YearAsPaddedString(4) + ":" +
-			c->MonthAsPaddedNumericString(2) + ":" +
-			c->DayAsPaddedString(2) + ":" +
-			c->HourAsPaddedString(2) + ":" +
-			c->MinuteAsPaddedString(2) + ":" +
-			c->SecondAsPaddedString(2) + "\r\n" +
-
-			"MAX: " + maximum + " MAX0: " + max[0] + " MAX1: " + max[1] + 
-			" AVE: " + average + " AVE0: " + ave[0] + " AVE1: " + ave[1] + 
-			" POS: " + pos.ToString() + " ALIGN: " + align.ToString() +  
-			" CC: " + delay[0].ToString() + " ASDF: " + delay[1].ToString() + " PEAK: " + delay[2].ToString() +
-			"\r\n";
-
-		for (size_t i = data0.First() - m_params->DelayWindow(); i <= data0.Last() + m_params->StoreExtra() + m_params->DelayWindow(); i++)
-		{
-			TimeDelayEstimation::AudioDataItem item0, item1;
-			data0.DataItem0(i, &item0);
-			data0.DataItem1(i + align, &item1, item0.timestamp);
-
-			Platform::String^ s =
-				item0.timestamp.ToString() + "\t" + item0.value.ToString() + "\t" +
-				item1.timestamp.ToString() + "\t" + item1.value.ToString() + "\r\n";
-			str = Platform::String::Concat(str, s);
-		}
-		StorageTask(str);
-	}
-	return true;
-}
-
-bool DataConsumer::CalculateTDE3(size_t pos, uint32 average, uint32 maximum, UINT64 fts, UINT64 lts)
-{
-	int delay[9];
-	CalcType max[3];
-	CalcType ave[3];
-	DelayType align[3];
-
-	SignalData data0 = SignalData(&m_buffer[m_devParams->Device0()][m_devParams->Channel0()], &m_buffer[m_devParams->Device1()][m_devParams->Channel1()], pos, pos + m_params->TDEWindow(), false);
-	bool b0 = CalculatePair(data0, delay[0], delay[1], delay[2], max[0], max[1], ave[0], ave[1], align[0]);
-	if (!b0) return false;
-
-	SignalData data1 = SignalData(&m_buffer[m_devParams->Device0()][m_devParams->Channel0()], &m_buffer[m_devParams->Device2()][m_devParams->Channel2()], pos, pos + m_params->TDEWindow(), false);
-	SignalData data2 = SignalData(&m_buffer[m_devParams->Device1()][m_devParams->Channel1()], &m_buffer[m_devParams->Device2()][m_devParams->Channel2()], pos + align[0], pos + align[0] + m_params->TDEWindow(), false);
-	
-	bool b1 = CalculatePair(data1, delay[3], delay[4], delay[5], max[0], max[2], ave[0], ave[2], align[1]);
-	bool b2 = CalculatePair(data2, delay[6], delay[7], delay[8], max[1], max[2], ave[1], ave[2], align[2]);
-
-	if (!b0 || !b1 || !b2) return false;
-
-	HeartBeat(0, HeartBeatType::DATA, fts, lts, 
-		delay[0], delay[1], delay[2], (int)align[0], 
-		delay[3], delay[4], delay[5], (int)align[1], 
-		delay[6], delay[7], delay[8], (int)align[2], 
-		maximum, (uint32)max[0], (uint32)max[1], (uint32)max[2], 
-		average, (uint32)ave[0], (uint32)ave[1], (uint32)ave[2], 
-		m_devices[m_devParams->Device0()].GetSamplesPerSec());
-
-	if (StoreTask == nullptr && m_params->StoreSample() && (max[0] >= m_params->StoreThreshold() || max[1] >= m_params->StoreThreshold() || max[2] >= m_params->StoreThreshold()))
-	{
-		Windows::Globalization::Calendar^ c = ref new Windows::Globalization::Calendar;
-		c->SetToNow();
-
-		Platform::String^ str = "TIME: " + c->YearAsPaddedString(4) + ":" +
-			c->MonthAsPaddedNumericString(2) + ":" +
-			c->DayAsPaddedString(2) + ":" +
-			c->HourAsPaddedString(2) + ":" +
-			c->MinuteAsPaddedString(2) + ":" +
-			c->SecondAsPaddedString(2) + "\r\n" +
-
-			"MAX: " + maximum + " MAX0: " + max[0] + " MAX1: " + max[1] + " MAX2: " + max[2] +
-			" AVE: " + average + " AVE0: " + ave[0] + " AVE1: " + ave[1] + " AVE2: " + ave[2] +
-			" POS: " + pos.ToString() + " ALIGN0: " + align[0].ToString() + " ALIGN1: " + align[1].ToString() + " ALIGN2: " + align[2].ToString() +
-			" CC0: " + delay[0].ToString() + " ASDF0: " + delay[1].ToString() + " PEAK0: " + delay[2].ToString() +
-			" CC1: " + delay[3].ToString() + " ASDF1: " + delay[4].ToString() + " PEAK1: " + delay[5].ToString() +
-			" CC2: " + delay[6].ToString() + " ASDF2: " + delay[7].ToString() + " PEAK2: " + delay[8].ToString() +
-			"\r\n";
-
-		for (size_t i = data0.First() - m_params->DelayWindow(); i <= data0.Last() + m_params->StoreExtra() + m_params->DelayWindow(); i++)
-		{
-			TimeDelayEstimation::AudioDataItem item0, item1, item2, item3;
-			data0.DataItem0(i, &item0);
-			data0.DataItem1(i + align[0], &item1, item0.timestamp);
-			data1.DataItem0(i, &item2);
-			data1.DataItem1(i + align[1], &item3, item2.timestamp);
-
-			Platform::String^ s =
-				item0.timestamp.ToString() + "\t" + item0.value.ToString() + "\t" +
-				item1.timestamp.ToString() + "\t" + item1.value.ToString() + "\t" +
-				item3.timestamp.ToString() + "\t" + item3.value.ToString() + "\t" +
-				item2.timestamp.ToString() + "\t" + item2.value.ToString() + "\r\n";
-				
-			str = Platform::String::Concat(str, s);
-		}
-		StorageTask(str);
-	}
-	return true;
-}
-
-void DataConsumer::HeartBeat(int delta, HeartBeatType status, UINT64 fts, UINT64 lts,
-	int i0, int i1, int i2, int i3, int i4, int i5, int i6, int i7, int i8, int i9, int i10, int i11,
-	uint32 ui0, uint32 ui1, uint32 ui2, uint32 ui3, uint32 ui4, uint32 ui5, uint32 ui6, uint32 ui7, uint32 ui8)
-{
-	ULONGLONG tick = GetTickCount64();
-	if (tick - m_tick > delta)
-	{
-		m_uiHandler(status, fts, lts, i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11,	ui0, ui1, ui2, ui3, ui4, ui5, ui6, ui7, ui8);
-		m_tick = tick;
-		m_packetCounter = 0;
-		m_discontinuityCounter = 0;
-		m_dataRemovalCounter = 0;
-	}
-}
-
-void DataConsumer::StorageTask(String^ data)
-{	
-	auto workItemDelegate = [this,data](Windows::Foundation::IAsyncAction^ action)
-	{
-		String^ str = data;
-		auto store = StoreData(str);
-		store.wait();
+		m_analyzer->ProcessData(m_numberOfDevices, devParams, params, devices, buffer, smallestBuffer);
 	};
 
-	auto completionDelegate = [this](Windows::Foundation::IAsyncAction^ action, Windows::Foundation::AsyncStatus status)
+	auto completionDelegate = [this, idx](IAsyncAction^ action, AsyncStatus status)
 	{
 		switch (action->Status)
 		{
-		case Windows::Foundation::AsyncStatus::Completed:
-		case Windows::Foundation::AsyncStatus::Error:
-		case Windows::Foundation::AsyncStatus::Canceled: StoreTask = nullptr;
+		case AsyncStatus::Completed:
+		case AsyncStatus::Error:
+		case AsyncStatus::Canceled: m_processTasks[idx] = nullptr;
 		}
 	};
 
-	auto workItemHandler = ref new Windows::System::Threading::WorkItemHandler(workItemDelegate);
-	auto completionHandler = ref new Windows::Foundation::AsyncActionCompletedHandler(completionDelegate, Platform::CallbackContext::Same);
+	auto workItemHandler = ref new WorkItemHandler(workItemDelegate);
+	auto completionHandler = ref new AsyncActionCompletedHandler(completionDelegate, CallbackContext::Same);
 
-	StoreTask = Windows::System::Threading::ThreadPool::RunAsync(workItemHandler, Windows::System::Threading::WorkItemPriority::Low);
-	StoreTask->Completed = completionHandler;
+	m_processTasks[idx] = ThreadPool::RunAsync(workItemHandler, WorkItemPriority::High);
+	m_processTasks[idx]->Completed = completionHandler;
 }
 
-concurrency::task<Windows::Storage::StorageFile^> DataConsumer::StoreData(String^ data)
+void DataConsumer::ProcessTask(int idx, uint32 beginR, uint32 endR, 
+	uint32 beginL, uint32 endL, 
+	const Array<int32>^ memoryR, const Array<int32>^ memoryL,
+	const Array<UINT64>^ timeStampR, const Array<UINT64>^ timeStampL)
 {
-	StorageFolder^ localFolder = ApplicationData::Current->LocalFolder;
-	auto createFileTask = create_task(localFolder->CreateFileAsync(m_params->SampleFile(), Windows::Storage::CreationCollisionOption::GenerateUniqueName));
-	createFileTask.then([data](StorageFile^ newFile)
+	auto workItemDelegate = [this, beginR, endR, beginL, endL, memoryR, memoryL, timeStampR, timeStampL](IAsyncAction^ action)
 	{
-		auto append = create_task(FileIO::WriteTextAsync(newFile, data));
-		append.wait();
-	});
-	return createFileTask;
+		m_analyzer->ProcessData(beginR, endR, beginL, endL, memoryR, memoryL, timeStampR, timeStampL);
+	};
+
+	auto completionDelegate = [this, idx](IAsyncAction^ action, AsyncStatus status)
+	{
+		switch (action->Status)
+		{
+		case AsyncStatus::Completed:
+		case AsyncStatus::Error:
+		case AsyncStatus::Canceled: m_processTasks[idx] = nullptr;
+		}
+	};
+
+	auto workItemHandler = ref new WorkItemHandler(workItemDelegate);
+	auto completionHandler = ref new AsyncActionCompletedHandler(completionDelegate, CallbackContext::Same);
+
+	m_processTasks[idx] = ThreadPool::RunAsync(workItemHandler, WorkItemPriority::High);
+	m_processTasks[idx]->Completed = completionHandler;
 }

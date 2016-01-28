@@ -22,10 +22,16 @@ namespace LibAudio
 	public:
 		WASAPIEngine();
 		virtual ~WASAPIEngine();
-		IAsyncAction^ InitializeAsync(UIDelegate^ func, TDEDevices^ devParams, TDEParameters^ params);
+		IAsyncAction^ InitializeAsync(UIDelegate1^ func, AudioDevices^ devParams, AudioParameters^ params);
+		IAsyncAction^ InitializeAsync(UIDelegate2^ func, AudioDevices^ devParams, AudioParameters^ params);
+
+		IAsyncAction^ GetDevicesAsync(UIDelegate3^ func);
+
 		void Finish();
+		void Continue();
 		
 	private:
+		IAsyncAction^ InitializeAsync(UIDelegate1^ func1, UIDelegate2^ func2, AudioDevices^ devParams, AudioParameters^ params);
 		std::vector<WASAPIDevice^> m_deviceList;
 		DataCollector^	m_collector;
 		DataConsumer^	m_consumer;

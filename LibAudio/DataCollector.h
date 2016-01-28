@@ -11,11 +11,9 @@ namespace LibAudio
 	ref class DataCollector sealed
 	{
 	public:
-
 		DataCollector(size_t nDevices);
 
 	internal:
-
 		HRESULT Initialize(size_t device, int channelsPerDevice, int nSamplesPerSec, int bitsPerSample, WAVEFORMATEX *mixFormat);
 		HRESULT Finish();
 
@@ -26,12 +24,10 @@ namespace LibAudio
 		void StoreData(bool store);
 
 	private:
-
 		~DataCollector();
 		void FlushPackets();
 
 	private:
-
 		CRITICAL_SECTION m_CritSec;
 		size_t m_numberOfDevices;
 		bool m_store;

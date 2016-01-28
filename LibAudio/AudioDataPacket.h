@@ -7,7 +7,6 @@ namespace LibAudio
 	class AudioDataPacket
 	{
 	public:
-
 		AudioDataPacket(const BYTE* pData, DWORD cbBytes, UINT64 u64QPCPosition, bool bDiscontinuity, bool bSilence) :
 			m_pData(NULL), 
 			m_cbBytes(0),
@@ -44,7 +43,6 @@ namespace LibAudio
 		AudioDataPacket* Next() const { return m_next; }
 
 	private:
-
 		BYTE* m_pData;
 		DWORD m_cbBytes;
 

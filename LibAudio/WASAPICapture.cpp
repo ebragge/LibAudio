@@ -52,18 +52,18 @@ WASAPICapture::WASAPICapture() :
         ThrowIfFailed( E_OUTOFMEMORY );
     }
 
-	HRESULT hr = S_OK;
-	DWORD dwTaskID = 0;
+    HRESULT hr = S_OK;
+    DWORD dwTaskID = 0;
 	
-	hr = MFLockSharedWorkQueue(L"Capture", 0, &dwTaskID, &m_dwQueueID);
+    hr = MFLockSharedWorkQueue(L"Capture", 0, &dwTaskID, &m_dwQueueID);
 
-	if (FAILED(hr))
-	{
-		ThrowIfFailed(hr);
-	}
+    if (FAILED(hr))
+    {
+        ThrowIfFailed(hr);
+    }
 
-	// Set the capture event work queue to use the MMCSS queue
-	m_xSampleReady.SetQueueID(m_dwQueueID);
+    // Set the capture event work queue to use the MMCSS queue
+    m_xSampleReady.SetQueueID(m_dwQueueID);
 }
 
 //
@@ -82,9 +82,7 @@ WASAPICapture::~WASAPICapture()
     }
 
     MFUnlockWorkQueue( m_dwQueueID );
-
     m_DeviceStateChanged = nullptr;
-
     DeleteCriticalSection( &m_CritSec );
 }
 
@@ -96,18 +94,18 @@ WASAPICapture::~WASAPICapture()
 //
 HRESULT WASAPICapture::InitializeAudioDeviceAsync(String^ id, size_t i, DataCollector^ streams)
 {
-	m_CaptureDeviceID = i;
-	m_streams = streams;
+    m_CaptureDeviceID = i;
+    m_streams = streams;
 
-	//IntPtr ptr = System::Runtime::InteropServices::Marshal::StringToHGlobalAnsi(id);
+    //IntPtr ptr = System::Runtime::InteropServices::Marshal::StringToHGlobalAnsi(id);
 
-	// Register MMCSS work queue
-	HRESULT hr = S_OK;
+    // Register MMCSS work queue
+    HRESULT hr = S_OK;
 
     ComPtr<IActivateAudioInterfaceAsyncOperation> asyncOp;
     
     // Get a string representing the Default Audio Capture Device
-	m_DeviceIdString = id;
+    m_DeviceIdString = id;
 
     // This call must be made on the main UI thread.  Async operation will call back to 
     // IActivateAudioInterfaceCompletionHandler::ActivateCompleted, which must be an agile interface implementation
@@ -247,25 +245,25 @@ HRESULT WASAPICapture::ActivateCompleted(IActivateAudioInterfaceAsyncOperation *
         goto exit;
     }
 		
-	hr = m_AudioClient->GetService( __uuidof(ISimpleAudioVolume), (void**) &m_SimpleAudioVolume );
-	if (FAILED(hr))
-	{
-		goto exit;
-	}
+    hr = m_AudioClient->GetService( __uuidof(ISimpleAudioVolume), (void**) &m_SimpleAudioVolume );
+    if (FAILED(hr))
+    {
+        goto exit;
+    }
 
-	float level;
+    float level;
 
-	hr = m_SimpleAudioVolume->GetMasterVolume(&level);
-	if (FAILED(hr))
-	{
-		goto exit;
-	}
+    hr = m_SimpleAudioVolume->GetMasterVolume(&level);
+    if (FAILED(hr))
+    {
+        goto exit;
+    }
 
-	hr = m_SimpleAudioVolume->SetMasterVolume(0.5, NULL);
-	if (FAILED(hr))
-	{
-		goto exit;
-	}
+    hr = m_SimpleAudioVolume->SetMasterVolume(0.5, NULL);
+    if (FAILED(hr))
+    {
+        goto exit;
+    }
 
     // Create Async callback for sample events
     hr = MFCreateAsyncResult( nullptr, &m_xSampleReady, nullptr, &m_SampleReadyAsyncResult );
@@ -281,14 +279,13 @@ HRESULT WASAPICapture::ActivateCompleted(IActivateAudioInterfaceAsyncOperation *
         goto exit;
     }
 
-	m_DeviceStateChanged->SetState(DeviceState::DeviceStateInitialized, S_OK, true);
-
-	m_streams->Initialize(m_CaptureDeviceID, m_MixFormat->nChannels, m_MixFormat->nSamplesPerSec, m_MixFormat->wBitsPerSample, m_MixFormat);
+    m_DeviceStateChanged->SetState(DeviceState::DeviceStateInitialized, S_OK, true);
+    m_streams->Initialize(m_CaptureDeviceID, m_MixFormat->nChannels, m_MixFormat->nSamplesPerSec, m_MixFormat->wBitsPerSample, m_MixFormat);
 
 exit:
     if (FAILED( hr ))
     {
-		m_streams->DeviceError(m_CaptureDeviceID);
+        m_streams->DeviceError(m_CaptureDeviceID);
         m_DeviceStateChanged->SetState( DeviceState::DeviceStateInError, hr, true );
         SAFE_RELEASE( m_AudioClient );
         SAFE_RELEASE( m_AudioCaptureClient );
@@ -298,7 +295,6 @@ exit:
     // Need to return S_OK
     return S_OK;
 }
-
 
 //
 //  StartCaptureAsync()
@@ -340,7 +336,6 @@ HRESULT WASAPICapture::OnStartCapture(IMFAsyncResult* pResult)
     {
         m_DeviceStateChanged->SetState( DeviceState::DeviceStateInError, hr, true );
     }
-
     return S_OK;
 }
 
@@ -403,13 +398,9 @@ HRESULT WASAPICapture::FinishCaptureAsync()
 //
 //  OnFinishCapture()
 //
-//  Because of the asynchronous nature of the MF Work Queues and the DataWriter, there could still be
-//  a sample processing.  So this will get called to finalize the WAV header.
-//
 HRESULT WASAPICapture::OnFinishCapture(IMFAsyncResult* pResult)
 {
-    // FixWAVHeader will set the DeviceStateStopped when all async tasks are complete
-	return S_OK;
+    return S_OK;
 }
 
 //
@@ -434,9 +425,8 @@ HRESULT WASAPICapture::OnSampleReady(IMFAsyncResult* pResult)
     else
     {
         m_DeviceStateChanged->SetState( DeviceState::DeviceStateInError, hr, true );
-		m_streams->DeviceError(m_CaptureDeviceID);
+        m_streams->DeviceError(m_CaptureDeviceID);
     }
-
     return hr;
 }
 
@@ -502,18 +492,18 @@ HRESULT WASAPICapture::OnAudioSampleRequested()
             goto exit;
         }
 
-		if (dwCaptureFlags & AUDCLNT_BUFFERFLAGS_TIMESTAMP_ERROR)
-		{
-			discontinuity = true;
-		}
+        if (dwCaptureFlags & AUDCLNT_BUFFERFLAGS_TIMESTAMP_ERROR)
+        {
+            discontinuity = true;
+        }
 
-		if (dwCaptureFlags & AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY)
-		{
-			discontinuity = true;
-		}
+        if (dwCaptureFlags & AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY)
+        {
+            discontinuity = true;
+        }
 
-		// HANDLE AUDIO DATA
-		m_streams->AddData(m_CaptureDeviceID, Data, cbBytesToCapture, u64QPCPosition, discontinuity, (dwCaptureFlags & AUDCLNT_BUFFERFLAGS_SILENT) != 0);
+        // HANDLE AUDIO DATA
+        m_streams->AddData(m_CaptureDeviceID, Data, cbBytesToCapture, u64QPCPosition, discontinuity, (dwCaptureFlags & AUDCLNT_BUFFERFLAGS_SILENT) != 0);
 
         // Release buffer back
         m_AudioCaptureClient->ReleaseBuffer( FramesAvailable );

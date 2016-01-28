@@ -5,6 +5,8 @@ VisualStudioVersion = 14.0.24720.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LibAudio", "LibAudio\LibAudio.vcxproj", "{6D016B27-6145-474B-B8F1-55741CA0EEE7}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LibTDE", "LibTDE\LibTDE\LibTDE.vcxproj", "{3E2125EA-78A5-4D22-894B-8B3C824B23FD}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|ARM = Debug|ARM
@@ -27,6 +29,18 @@ Global
 		{6D016B27-6145-474B-B8F1-55741CA0EEE7}.Release|x64.Build.0 = Release|x64
 		{6D016B27-6145-474B-B8F1-55741CA0EEE7}.Release|x86.ActiveCfg = Release|Win32
 		{6D016B27-6145-474B-B8F1-55741CA0EEE7}.Release|x86.Build.0 = Release|Win32
+		{3E2125EA-78A5-4D22-894B-8B3C824B23FD}.Debug|ARM.ActiveCfg = Debug|ARM
+		{3E2125EA-78A5-4D22-894B-8B3C824B23FD}.Debug|ARM.Build.0 = Debug|ARM
+		{3E2125EA-78A5-4D22-894B-8B3C824B23FD}.Debug|x64.ActiveCfg = Debug|x64
+		{3E2125EA-78A5-4D22-894B-8B3C824B23FD}.Debug|x64.Build.0 = Debug|x64
+		{3E2125EA-78A5-4D22-894B-8B3C824B23FD}.Debug|x86.ActiveCfg = Debug|Win32
+		{3E2125EA-78A5-4D22-894B-8B3C824B23FD}.Debug|x86.Build.0 = Debug|Win32
+		{3E2125EA-78A5-4D22-894B-8B3C824B23FD}.Release|ARM.ActiveCfg = Release|ARM
+		{3E2125EA-78A5-4D22-894B-8B3C824B23FD}.Release|ARM.Build.0 = Release|ARM
+		{3E2125EA-78A5-4D22-894B-8B3C824B23FD}.Release|x64.ActiveCfg = Release|x64
+		{3E2125EA-78A5-4D22-894B-8B3C824B23FD}.Release|x64.Build.0 = Release|x64
+		{3E2125EA-78A5-4D22-894B-8B3C824B23FD}.Release|x86.ActiveCfg = Release|Win32
+		{3E2125EA-78A5-4D22-894B-8B3C824B23FD}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -15,12 +15,23 @@ WASAPIEngine::~WASAPIEngine()
 {
 }
 
-IAsyncAction^ WASAPIEngine::InitializeAsync(UIDelegate^ func, TDEDevices^ devParams, TDEParameters^ params)
+IAsyncAction^ WASAPIEngine::InitializeAsync(UIDelegate1^ func, AudioDevices^ devParams, AudioParameters^ params)
 {
-	return create_async([this ,func, devParams, params]
+	return InitializeAsync(func, nullptr, devParams, params);
+}
+
+[Windows::Foundation::Metadata::DefaultOverloadAttribute]
+IAsyncAction^ WASAPIEngine::InitializeAsync(UIDelegate2^ func, AudioDevices^ devParams, AudioParameters^ params)
+{
+	return InitializeAsync(nullptr, func, devParams, params);
+}
+
+IAsyncAction^ WASAPIEngine::InitializeAsync(UIDelegate1^ func1, UIDelegate2^ func2, AudioDevices^ devParams, AudioParameters^ params)
+{
+	return create_async([this ,func1, func2, devParams, params]
 	{
 		// Get the string identifier of the audio renderer
-		String^ AudioSelector = MediaDevice::GetAudioCaptureSelector();
+		auto AudioSelector = MediaDevice::GetAudioCaptureSelector();
 
 		// Add custom properties to the query
 		auto PropertyList = ref new Platform::Collections::Vector<String^>();
@@ -40,10 +51,10 @@ IAsyncAction^ WASAPIEngine::InitializeAsync(UIDelegate^ func, TDEDevices^ devPar
 				{
 					// Enumerate through the devices and the custom properties
 					for (unsigned int i = 0; i < DeviceInfoCollection->Size; i++)
-					{
-						DeviceInformation^ deviceInfo = DeviceInfoCollection->GetAt(i);
-						String^ DeviceInfoString = deviceInfo->Name;
-						String^ DeviceIdString = deviceInfo->Id;
+					{ 
+						auto deviceInfo = DeviceInfoCollection->GetAt(i);
+						auto DeviceInfoString = deviceInfo->Name;
+						auto DeviceIdString = deviceInfo->Id;
 
 						if (deviceInfo->Properties->Size > 0)
 						{
@@ -57,25 +68,72 @@ IAsyncAction^ WASAPIEngine::InitializeAsync(UIDelegate^ func, TDEDevices^ devPar
 						}
 					}
 				}
-				catch (Platform::Exception^ e)
-				{
-
-				}
+				catch (Platform::Exception^) {}
 			}
 		})
-		.then([this, func, devParams, params]()
+		.then([this, func1, func2, devParams, params]()
 		{
-			if (m_deviceList.size() >= devParams->MinDevices()) 
+			if (m_deviceList.size() >= devParams->Devices()) 
 			{
-				m_collector = ref new DataCollector(m_deviceList.size());
+				m_collector = ref new DataCollector(devParams->Devices());
 				for (size_t i = 0; i < m_deviceList.size(); i++)
 				{
-					m_deviceList[i]->InitCaptureDevice(i, m_collector);
+					auto index = devParams->GetIndex(m_deviceList[i]->ID, i);
+					if (index != -1)
+					{
+						m_deviceList[i]->InitCaptureDevice(index, m_collector);
+					}
 				}
-				m_consumer = ref new DataConsumer(m_deviceList.size(), m_collector, func, devParams, params);
+				m_consumer = ref new DataConsumer(devParams->Devices(), m_collector, func1, func2, devParams, params);
 				m_consumer->Start();
 			}
-			else func(LibAudio::HeartBeatType::NODEVICE, m_deviceList.size(),0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0);
+			else
+			{
+				if (func1 == nullptr)
+				{
+					func2(LibAudio::HeartBeatType::NODEVICE, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr);
+				}
+				else
+				{
+					func1(LibAudio::HeartBeatType::NODEVICE, nullptr, nullptr, nullptr);
+				}
+			}
+		});
+	});
+}
+
+IAsyncAction^ WASAPIEngine::GetDevicesAsync(UIDelegate3^ func)
+{
+	return create_async([this, func]
+	{
+		// Get the string identifier of the audio renderer
+		auto AudioSelector = MediaDevice::GetAudioCaptureSelector();
+
+		// Add custom properties to the query
+		auto PropertyList = ref new Platform::Collections::Vector<String^>();
+		PropertyList->Append(PKEY_AudioEndpoint_Supports_EventDriven_Mode);
+
+		// Setup the asynchronous callback
+		Concurrency::task<DeviceInformationCollection^> enumOperation(DeviceInformation::FindAllAsync(AudioSelector, PropertyList));
+		enumOperation.then([this, func](DeviceInformationCollection^ DeviceInfoCollection)
+		{
+			if ((DeviceInfoCollection == nullptr) || (DeviceInfoCollection->Size == 0))
+			{
+				func(L"No Devices Found.\n");
+			}
+			else
+			{
+				try
+				{
+					// Enumerate through the devices and the custom properties
+					for (unsigned int i = 0; i < DeviceInfoCollection->Size; i++)
+					{
+						auto deviceInfo = DeviceInfoCollection->GetAt(i);
+						func(deviceInfo->Id);
+					}
+				}
+				catch (Platform::Exception^) {}
+			}
 		});
 	});
 }
@@ -84,14 +142,27 @@ void WASAPIEngine::Finish()
 {
 	if (m_deviceList.size() > 0)
 	{
-		for (size_t i = 0; i < m_deviceList.size(); i++)
-		{
-			m_deviceList[i]->Capture->StopCaptureAsync();
-			m_deviceList[i] = nullptr;
-		}
 		m_consumer->Finish();
 		m_consumer = nullptr;
+
+		for (size_t i = 0; i < m_deviceList.size(); i++)
+		{
+			if (m_deviceList[i]->Initialized())
+			{
+				m_deviceList[i]->Capture->StopCaptureAsync();
+			}		
+			m_deviceList[i] = nullptr;
+		}
+
 		m_collector->Finish();
 		m_collector = nullptr;
+	}
+}
+
+void WASAPIEngine::Continue()
+{
+	if (m_consumer != nullptr)
+	{
+		m_consumer->Continue();
 	}
 }

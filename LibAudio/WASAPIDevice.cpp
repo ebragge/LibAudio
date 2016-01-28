@@ -3,7 +3,7 @@
 
 using namespace LibAudio;
 
-WASAPIDevice::WASAPIDevice()
+WASAPIDevice::WASAPIDevice() : m_initialized(false)
 {
 }
 
@@ -21,6 +21,7 @@ void WASAPIDevice::InitCaptureDevice(size_t id, DataCollector^ collector)
 	DeviceStateChangeToken = StateChangedEvent->StateChangedEvent += ref new DeviceStateChangedHandler(this, &WASAPIDevice::OnDeviceStateChange);
 
 	Capture->InitializeAudioDeviceAsync(ID, Number, collector);
+	m_initialized = true;
 }
 
 void WASAPIDevice::OnDeviceStateChange(Object^ sender, DeviceStateChangedEventArgs^ e)

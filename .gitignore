@@ -1,0 +1,12 @@
+.vs/
+ARM/
+Debug/
+Release/
+x64/
+LibAudio.sdf
+LibAudio/ARM/
+LibAudio/Debug/
+LibAudio/x64/
+LibAudio/Release/
+LibAudio.VC.opendb
+ipch/

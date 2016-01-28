@@ -63,29 +63,29 @@ namespace LibAudio
         HRESULT OnAudioSampleRequested();
         
     private:
-        Platform::String^			m_DeviceIdString;
-        UINT32						m_BufferFrames;
-        HANDLE						m_SampleReadyEvent;
-        MFWORKITEM_KEY				m_SampleReadyKey;
-		CRITICAL_SECTION			m_CritSec;
-        DWORD						m_dwQueueID;
+        Platform::String^ m_DeviceIdString;
+        UINT32 m_BufferFrames;
+        HANDLE m_SampleReadyEvent;
+        MFWORKITEM_KEY m_SampleReadyKey;
+        CRITICAL_SECTION m_CritSec;
+        DWORD m_dwQueueID;
 
-		WAVEFORMATEX				*m_MixFormat;
+        WAVEFORMATEX *m_MixFormat;
 
-        IAudioClient3				*m_AudioClient;
-        UINT32						m_DefaultPeriodInFrames;
-        UINT32						m_FundamentalPeriodInFrames;
-        UINT32						m_MaxPeriodInFrames;
-        UINT32						m_MinPeriodInFrames;
+        IAudioClient3 *m_AudioClient;
+        UINT32 m_DefaultPeriodInFrames;
+        UINT32 m_FundamentalPeriodInFrames;
+        UINT32 m_MaxPeriodInFrames;
+        UINT32 m_MinPeriodInFrames;
 
-		IAudioCaptureClient			*m_AudioCaptureClient;
-		ISimpleAudioVolume			*m_SimpleAudioVolume;
+        IAudioCaptureClient *m_AudioCaptureClient;
+        ISimpleAudioVolume *m_SimpleAudioVolume;
 
-        IMFAsyncResult				*m_SampleReadyAsyncResult;
+        IMFAsyncResult *m_SampleReadyAsyncResult;
 
-        DeviceStateChangedEvent^	m_DeviceStateChanged;
+        DeviceStateChangedEvent^ m_DeviceStateChanged;
 
-		size_t m_CaptureDeviceID;
-		DataCollector^ m_streams;
+        size_t m_CaptureDeviceID;
+        DataCollector^ m_streams;
     };
 }

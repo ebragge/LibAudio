@@ -13,6 +13,12 @@
     <ClCompile Include="WASAPICapture.cpp" />
     <ClCompile Include="WASAPIDevice.cpp" />
     <ClCompile Include="WASAPIEngine.cpp" />
+    <ClCompile Include="HeartBeatSender.cpp" />
+    <ClCompile Include="TDEAnalyzer.cpp" />
+    <ClCompile Include="AudioDevices.cpp" />
+    <ClCompile Include="AudioParameters.cpp" />
+    <ClCompile Include="IAnalyzer.cpp" />
+    <ClCompile Include="DataAnalyzer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -25,5 +31,11 @@
     <ClInclude Include="WASAPICapture.h" />
     <ClInclude Include="WASAPIDevice.h" />
     <ClInclude Include="WASAPIEngine.h" />
+    <ClInclude Include="HeartBeatSender.h" />
+    <ClInclude Include="IAnalyzer.h" />
+    <ClInclude Include="TDEAnalyzer.h" />
+    <ClInclude Include="AudioDevices.h" />
+    <ClInclude Include="AudioParameters.h" />
+    <ClInclude Include="DataAnalyzer.h" />
   </ItemGroup>
 </Project>
