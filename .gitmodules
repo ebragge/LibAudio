@@ -1,0 +1,3 @@
+[submodule "LibTDE"]
+	path = LibTDE
+	url = https://github.com/ebragge/LibTDE
