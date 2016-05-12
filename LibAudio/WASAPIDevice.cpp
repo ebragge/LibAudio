@@ -7,6 +7,14 @@ WASAPIDevice::WASAPIDevice() : m_initialized(false)
 {
 }
 
+void WASAPIDevice::StopAsync()
+{
+	if (Capture != nullptr)
+	{
+		Capture->StopCaptureAsync();
+	}
+}
+
 void WASAPIDevice::InitCaptureDevice(size_t id, DataCollector^ collector)
 {
 	Number = id;

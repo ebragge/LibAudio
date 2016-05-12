@@ -21,6 +21,7 @@ namespace LibAudio
 		void InitRendererDevice(size_t id, DataCollector^ collector);
 
 		bool Initialized() { return m_initialized; }
+		void StopAsync();
 
 		property String^ ID;
 		property String^ Name;
