@@ -188,11 +188,13 @@ IAsyncAction^ WASAPIEngine::GetCaptureDevicesAsync(UIDelegate3^ func)
 			{
 				try
 				{
+					auto defaultId = MediaDevice::GetDefaultAudioCaptureId(Windows::Media::Devices::AudioDeviceRole::Default);
+
 					// Enumerate through the devices and the custom properties
 					for (unsigned int i = 0; i < DeviceInfoCollection->Size; i++)
 					{
 						auto deviceInfo = DeviceInfoCollection->GetAt(i);
-						auto def = deviceInfo->IsDefault;
+						auto def = defaultId->Equals(deviceInfo->Id);
 						func(1, deviceInfo->Id, def);
 					}
 				}
@@ -225,11 +227,13 @@ IAsyncAction^ WASAPIEngine::GetRendererDevicesAsync(UIDelegate3^ func)
 			{
 				try
 				{
+					auto defaultId = MediaDevice::GetDefaultAudioRenderId(Windows::Media::Devices::AudioDeviceRole::Default);
+
 					// Enumerate through the devices and the custom properties
 					for (unsigned int i = 0; i < DeviceInfoCollection->Size; i++)
 					{
 						auto deviceInfo = DeviceInfoCollection->GetAt(i);
-						auto def = deviceInfo->IsDefault;
+						auto def = defaultId->Equals(deviceInfo->Id);
 						func(2, deviceInfo->Id, def);
 					}
 				}
