@@ -65,13 +65,13 @@ void WASAPIDevice::InitRendererDevice(size_t id, DataCollector^ collector)
 	}
 
 	m_IsMinimumLatency = static_cast<Platform::Boolean>(toggleMinimumLatency->IsOn);
-	
-	props.IsLowLatency = m_IsMinimumLatency;
+	*/
+	//props.IsLowLatency = m_IsMinimumLatency;
 	props.IsHWOffload = false;
 	props.IsBackground = false;
-	props.IsRawChosen = static_cast<Platform::Boolean>(toggleRawAudio->IsOn);
-	props.IsRawSupported = m_deviceSupportsRawMode;
-	*/
+	//props.IsRawChosen = static_cast<Platform::Boolean>(toggleRawAudio->IsOn);
+	//props.IsRawSupported = m_deviceSupportsRawMode;
+
 	Renderer->SetProperties(props);
 	
 	Renderer->InitializeAudioDeviceAsync(ID, Number, collector);
