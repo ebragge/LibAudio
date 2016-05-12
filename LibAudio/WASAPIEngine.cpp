@@ -192,7 +192,7 @@ IAsyncAction^ WASAPIEngine::GetCaptureDevicesAsync(UIDelegate3^ func)
 					for (unsigned int i = 0; i < DeviceInfoCollection->Size; i++)
 					{
 						auto deviceInfo = DeviceInfoCollection->GetAt(i);
-						func("C - " + deviceInfo->Id + deviceInfo->IsDefault ? "*" : "");
+						func("C - " + deviceInfo->Id + (deviceInfo->IsDefault ? "*" : ""));
 					}
 				}
 				catch (Platform::Exception^) {}
@@ -228,7 +228,7 @@ IAsyncAction^ WASAPIEngine::GetRendererDevicesAsync(UIDelegate3^ func)
 					for (unsigned int i = 0; i < DeviceInfoCollection->Size; i++)
 					{
 						auto deviceInfo = DeviceInfoCollection->GetAt(i);
-						func("R - " + deviceInfo->Id + deviceInfo->IsDefault ? "*" : "");
+						func("R - " + deviceInfo->Id + (deviceInfo->IsDefault ? "*" : ""));
 					}
 				}
 				catch (Platform::Exception^) {}
