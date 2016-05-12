@@ -182,7 +182,7 @@ IAsyncAction^ WASAPIEngine::GetCaptureDevicesAsync(UIDelegate3^ func)
 		{
 			if ((DeviceInfoCollection == nullptr) || (DeviceInfoCollection->Size == 0))
 			{
-				func(L"No Devices Found.\n");
+				func(0, L"No Devices Found.\n", false);
 			}
 			else
 			{
@@ -192,7 +192,7 @@ IAsyncAction^ WASAPIEngine::GetCaptureDevicesAsync(UIDelegate3^ func)
 					for (unsigned int i = 0; i < DeviceInfoCollection->Size; i++)
 					{
 						auto deviceInfo = DeviceInfoCollection->GetAt(i);
-						func("C - " + deviceInfo->Id + (deviceInfo->IsDefault ? "*" : ""));
+						func(1, deviceInfo->Id, deviceInfo->IsDefault);
 					}
 				}
 				catch (Platform::Exception^) {}
@@ -218,7 +218,7 @@ IAsyncAction^ WASAPIEngine::GetRendererDevicesAsync(UIDelegate3^ func)
 		{
 			if ((DeviceInfoCollection == nullptr) || (DeviceInfoCollection->Size == 0))
 			{
-				func(L"No Devices Found.\n");
+				func(0, L"No Devices Found.\n", false);
 			}
 			else
 			{
@@ -228,7 +228,7 @@ IAsyncAction^ WASAPIEngine::GetRendererDevicesAsync(UIDelegate3^ func)
 					for (unsigned int i = 0; i < DeviceInfoCollection->Size; i++)
 					{
 						auto deviceInfo = DeviceInfoCollection->GetAt(i);
-						func("R - " + deviceInfo->Id + (deviceInfo->IsDefault ? "*" : ""));
+						func(2, deviceInfo->Id, deviceInfo->IsDefault);
 					}
 				}
 				catch (Platform::Exception^) {}

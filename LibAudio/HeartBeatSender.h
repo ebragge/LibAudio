@@ -68,7 +68,7 @@ namespace LibAudio
 	public delegate void UIDelegate1(HeartBeatType, TimeWindow^, const Array<TDESample^>^, const Array<AudioSample^>^);
 	public delegate void UIDelegate2(HeartBeatType, uint32, uint32, uint32, uint32, 
 		const Array<int32>^, const Array<int32>^, const Array<UINT64>^, const Array<UINT64>^);
-	public delegate void UIDelegate3(Platform::String^);
+	public delegate void UIDelegate3(uint32, Platform::String^, bool);
 
 	ref class HeartBeatSender sealed
 	{
