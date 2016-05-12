@@ -8,10 +8,6 @@
 //
 //*********************************************************
 
-//
-// WASAPICapture.h
-//
-
 #include "pch.h"
 #include "Common.h"
 #include "WASAPICapture.h"
@@ -23,9 +19,6 @@ using namespace Platform;
 
 #define BITS_PER_BYTE 8
 
-//
-//  WASAPICapture()
-//
 WASAPICapture::WASAPICapture() :
     m_BufferFrames( 0 ),
     m_dwQueueID( 0 ),
@@ -66,9 +59,6 @@ WASAPICapture::WASAPICapture() :
     m_xSampleReady.SetQueueID(m_dwQueueID);
 }
 
-//
-//  ~WASAPICapture()
-//
 WASAPICapture::~WASAPICapture()
 {
     SAFE_RELEASE( m_AudioClient );
@@ -86,12 +76,6 @@ WASAPICapture::~WASAPICapture()
     DeleteCriticalSection( &m_CritSec );
 }
 
-//
-//  InitializeAudioDeviceAsync()
-//
-//  Activates the default audio capture on a asynchronous callback thread.  This needs
-//  to be called from the main UI thread.
-//
 HRESULT WASAPICapture::InitializeAudioDeviceAsync(String^ id, size_t i, DataCollector^ streams)
 {
     m_CaptureDeviceID = i;
@@ -104,7 +88,6 @@ HRESULT WASAPICapture::InitializeAudioDeviceAsync(String^ id, size_t i, DataColl
 
     ComPtr<IActivateAudioInterfaceAsyncOperation> asyncOp;
     
-    // Get a string representing the Default Audio Capture Device
     m_DeviceIdString = id;
 
     // This call must be made on the main UI thread.  Async operation will call back to 
@@ -117,12 +100,6 @@ HRESULT WASAPICapture::InitializeAudioDeviceAsync(String^ id, size_t i, DataColl
     return hr;
 }
 
-//
-//  ActivateCompleted()
-//
-//  Callback implementation of ActivateAudioInterfaceAsync function.  This will be called on MTA thread
-//  when results of the activation are available.
-//
 HRESULT WASAPICapture::ActivateCompleted(IActivateAudioInterfaceAsyncOperation *operation)
 {
     HRESULT hr = S_OK;
@@ -296,11 +273,6 @@ exit:
     return S_OK;
 }
 
-//
-//  StartCaptureAsync()
-//
-//  Starts asynchronous capture on a separate thread via MF Work Item
-//
 HRESULT WASAPICapture::StartCaptureAsync()
 {
     HRESULT hr = S_OK;
@@ -316,11 +288,6 @@ HRESULT WASAPICapture::StartCaptureAsync()
     return E_NOT_VALID_STATE;
 }
 
-//
-//  OnStartCapture()
-//
-//  Callback method to start capture
-//
 HRESULT WASAPICapture::OnStartCapture(IMFAsyncResult* pResult)
 {
     HRESULT hr = S_OK;
@@ -339,11 +306,6 @@ HRESULT WASAPICapture::OnStartCapture(IMFAsyncResult* pResult)
     return S_OK;
 }
 
-//
-//  StopCaptureAsync()
-//
-//  Stop capture asynchronously via MF Work Item
-//
 HRESULT WASAPICapture::StopCaptureAsync()
 {
     if ( (m_DeviceStateChanged->GetState() != DeviceState::DeviceStateCapturing) &&
@@ -357,11 +319,6 @@ HRESULT WASAPICapture::StopCaptureAsync()
     return MFPutWorkItem2( MFASYNC_CALLBACK_QUEUE_MULTITHREADED, 0, &m_xStopCapture, nullptr );
 }
 
-//
-//  OnStopCapture()
-//
-//  Callback method to stop capture
-//
 HRESULT WASAPICapture::OnStopCapture(IMFAsyncResult* pResult)
 {
     // Stop capture by cancelling Work Item
@@ -378,11 +335,6 @@ HRESULT WASAPICapture::OnStopCapture(IMFAsyncResult* pResult)
     return S_OK;
 }
 
-//
-//  FinishCaptureAsync()
-//
-//  Finalizes WAV file on a separate thread via MF Work Item
-//
 HRESULT WASAPICapture::FinishCaptureAsync()
 {
     // We should be flushing when this is called
@@ -395,19 +347,11 @@ HRESULT WASAPICapture::FinishCaptureAsync()
     return E_NOT_VALID_STATE;
 }
 
-//
-//  OnFinishCapture()
-//
 HRESULT WASAPICapture::OnFinishCapture(IMFAsyncResult* pResult)
 {
     return S_OK;
 }
 
-//
-//  OnSampleReady()
-//
-//  Callback method when ready to fill sample buffer
-//
 HRESULT WASAPICapture::OnSampleReady(IMFAsyncResult* pResult)
 {
     HRESULT hr = S_OK;
@@ -430,11 +374,6 @@ HRESULT WASAPICapture::OnSampleReady(IMFAsyncResult* pResult)
     return hr;
 }
 
-//
-//  OnAudioSampleRequested()
-//
-//  Called when audio device fires m_SampleReadyEvent
-//
 HRESULT WASAPICapture::OnAudioSampleRequested()
 {
     HRESULT hr = S_OK;

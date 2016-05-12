@@ -19,6 +19,9 @@
     <ClCompile Include="AudioParameters.cpp" />
     <ClCompile Include="IAnalyzer.cpp" />
     <ClCompile Include="DataAnalyzer.cpp" />
+    <ClCompile Include="WASAPIRenderer.cpp" />
+    <ClCompile Include="MFSampleGenerator.cpp" />
+    <ClCompile Include="ToneSampleGenerator.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -37,5 +40,8 @@
     <ClInclude Include="AudioDevices.h" />
     <ClInclude Include="AudioParameters.h" />
     <ClInclude Include="DataAnalyzer.h" />
+    <ClInclude Include="WASAPIRenderer.h" />
+    <ClInclude Include="MFSampleGenerator.h" />
+    <ClInclude Include="ToneSampleGenerator.h" />
   </ItemGroup>
 </Project>

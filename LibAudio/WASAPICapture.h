@@ -8,10 +8,6 @@
 //
 //*********************************************************
 
-//
-// WASAPICapture.h
-//
-
 #include <Windows.h>
 #include <wrl\implements.h>
 #include <mfapi.h>

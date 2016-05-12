@@ -1,5 +1,7 @@
 #pragma once
 #include "WASAPICapture.h"
+#include "WASAPIRenderer.h"
+
 #include "DeviceState.h"
 #include "DataCollector.h"
 
@@ -16,6 +18,8 @@ namespace LibAudio
 	public:
 		WASAPIDevice();
 		void InitCaptureDevice(size_t id, DataCollector^ collector);
+		void InitRendererDevice(size_t id, DataCollector^ collector);
+
 		bool Initialized() { return m_initialized; }
 
 		property String^ ID;
@@ -27,6 +31,8 @@ namespace LibAudio
 		
 	internal:
 		property ComPtr<WASAPICapture>		Capture;
+		property ComPtr<WASAPIRenderer>		Renderer;
+
 		property DeviceStateChangedEvent^   StateChangedEvent;
 		property EventRegistrationToken		DeviceStateChangeToken;		
 

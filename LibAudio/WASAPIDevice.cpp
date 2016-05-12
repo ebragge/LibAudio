@@ -24,6 +24,52 @@ void WASAPIDevice::InitCaptureDevice(size_t id, DataCollector^ collector)
 	m_initialized = true;
 }
 
+void WASAPIDevice::InitRendererDevice(size_t id, DataCollector^ collector)
+{
+    HRESULT hr = S_OK;
+
+    if (Renderer)
+    {
+		Renderer = nullptr;
+	}
+	
+    Renderer = Make<WASAPIRenderer>();
+	
+    StateChangedEvent = Renderer->GetDeviceStateEvent();
+	DeviceStateChangeToken = StateChangedEvent->StateChangedEvent += ref new DeviceStateChangedHandler(this, &WASAPIDevice::OnDeviceStateChange);
+
+	
+	DEVICEPROPS props;
+	props.IsTonePlayback = true;
+	props.Frequency = static_cast<DWORD>(440);
+	/*
+	switch (m_ContentType)
+	{
+	case ContentType::ContentTypeTone:
+		props.IsTonePlayback = true;
+		props.Frequency = static_cast<DWORD>(sliderFrequency->Value);
+		break;
+
+	case ContentType::ContentTypeFile:
+		props.IsTonePlayback = false;
+		props.ContentStream = m_ContentStream;
+		break;
+	}
+
+	m_IsMinimumLatency = static_cast<Platform::Boolean>(toggleMinimumLatency->IsOn);
+	
+	props.IsLowLatency = m_IsMinimumLatency;
+	props.IsHWOffload = false;
+	props.IsBackground = false;
+	props.IsRawChosen = static_cast<Platform::Boolean>(toggleRawAudio->IsOn);
+	props.IsRawSupported = m_deviceSupportsRawMode;
+	*/
+	Renderer->SetProperties(props);
+	
+	Renderer->InitializeAudioDeviceAsync(ID, Number, collector);
+	m_initialized = true;
+}
+
 void WASAPIDevice::OnDeviceStateChange(Object^ sender, DeviceStateChangedEventArgs^ e)
 {
 	// Get the current time for messages

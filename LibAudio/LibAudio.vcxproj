@@ -249,20 +249,24 @@
     <ClInclude Include="DeviceState.h" />
     <ClInclude Include="HeartBeatSender.h" />
     <ClInclude Include="IAnalyzer.h" />
+    <ClInclude Include="MFSampleGenerator.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="DataAnalyzer.h" />
     <ClInclude Include="TDEAnalyzer.h" />
     <ClInclude Include="AudioDevices.h" />
     <ClInclude Include="AudioParameters.h" />
+    <ClInclude Include="ToneSampleGenerator.h" />
     <ClInclude Include="WASAPICapture.h" />
     <ClInclude Include="WASAPIDevice.h" />
     <ClInclude Include="WASAPIEngine.h" />
+    <ClInclude Include="WASAPIRenderer.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DataCollector.cpp" />
     <ClCompile Include="DataConsumer.cpp" />
     <ClCompile Include="HeartBeatSender.cpp" />
     <ClCompile Include="IAnalyzer.cpp" />
+    <ClCompile Include="MFSampleGenerator.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
@@ -275,9 +279,11 @@
     <ClCompile Include="TDEAnalyzer.cpp" />
     <ClCompile Include="AudioDevices.cpp" />
     <ClCompile Include="AudioParameters.cpp" />
+    <ClCompile Include="ToneSampleGenerator.cpp" />
     <ClCompile Include="WASAPICapture.cpp" />
     <ClCompile Include="WASAPIDevice.cpp" />
     <ClCompile Include="WASAPIEngine.cpp" />
+    <ClCompile Include="WASAPIRenderer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\LibTDE\LibTDE\LibTDE.vcxproj">
