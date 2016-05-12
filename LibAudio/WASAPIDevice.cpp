@@ -92,7 +92,14 @@ void WASAPIDevice::OnDeviceStateChange(Object^ sender, DeviceStateChangedEventAr
 		{
 			String^ str = String::Concat(ID, "-DeviceStateInitialized\n");
 			OutputDebugString(str->Data());
-			Capture->StartCaptureAsync();
+			if (Capture != nullptr)
+			{
+				Capture->StartCaptureAsync();
+			}
+			if (Renderer != nullptr)
+			{
+				Renderer->StartPlaybackAsync();
+			}
 			break;
 		}
 		case DeviceState::DeviceStateCapturing:
