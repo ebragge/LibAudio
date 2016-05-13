@@ -158,7 +158,7 @@ IAsyncAction^ WASAPIEngine::InitializeRendererAsync(AudioDevices^ devParams, Aud
 					auto index = devParams->GetIndex(m_rendererDeviceList[i]->ID, i);
 					if (index != -1)
 					{
-						m_rendererDeviceList[i]->InitRendererDevice(index, nullptr);
+						m_rendererDeviceList[i]->InitToneDevice(index, nullptr, devParams->GetFrequency(m_rendererDeviceList[i]->ID));
 					}
 				}
 			}

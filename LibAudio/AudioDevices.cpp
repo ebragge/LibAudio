@@ -8,7 +8,7 @@ AudioDevices::AudioDevices(uint32 devices) : m_devices(devices)
 	m_channels = ref new Platform::Array<AudioChannel^>(devices);
 	for (unsigned int i = 0; i < devices; i++)
 	{
-		m_channels->set(i, ref new AudioChannel(i, 0, ""));
+		m_channels->set(i, ref new AudioChannel(i, 0, "", 0));
 	}
 }
 
@@ -44,6 +44,17 @@ int AudioDevices::GetIndex(Platform::String^ id, size_t index)
 		if (wcswcs(id->Data(), m_channels->get(idx)->ID()->Data()) != NULL) return (int)idx;
 	}
 	return -1;
+}
+
+uint32 AudioDevices::GetFrequency(Platform::String^ id)
+{
+	if (m_channels->Length > 0 && m_channels->get(0)->ID()->Length() == 0) return 0;
+
+	for (unsigned int idx = 0; idx < m_channels->Length; idx++)
+	{
+		if (wcswcs(id->Data(), m_channels->get(idx)->ID()->Data()) != NULL) return m_channels->get(idx)->Frequency();
+	}
+	return 0;
 }
 
 uint32 AudioDevices::Channels() 

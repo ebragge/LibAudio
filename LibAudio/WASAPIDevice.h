@@ -18,7 +18,7 @@ namespace LibAudio
 	public:
 		WASAPIDevice();
 		void InitCaptureDevice(size_t id, DataCollector^ collector);
-		void InitRendererDevice(size_t id, DataCollector^ collector);
+		void InitToneDevice(size_t id, DataCollector^ collector, uint32 frequency);
 
 		bool Initialized() { return m_initialized; }
 		void StopAsync();

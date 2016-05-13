@@ -32,7 +32,7 @@ void WASAPIDevice::InitCaptureDevice(size_t id, DataCollector^ collector)
 	m_initialized = true;
 }
 
-void WASAPIDevice::InitRendererDevice(size_t id, DataCollector^ collector)
+void WASAPIDevice::InitToneDevice(size_t id, DataCollector^ collector, uint32 frequency)
 {
     HRESULT hr = S_OK;
 
@@ -49,28 +49,10 @@ void WASAPIDevice::InitRendererDevice(size_t id, DataCollector^ collector)
 	
 	DEVICEPROPS props;
 	props.IsTonePlayback = true;
-	props.Frequency = static_cast<DWORD>(440);
-	/*
-	switch (m_ContentType)
-	{
-	case ContentType::ContentTypeTone:
-		props.IsTonePlayback = true;
-		props.Frequency = static_cast<DWORD>(sliderFrequency->Value);
-		break;
-
-	case ContentType::ContentTypeFile:
-		props.IsTonePlayback = false;
-		props.ContentStream = m_ContentStream;
-		break;
-	}
-
-	m_IsMinimumLatency = static_cast<Platform::Boolean>(toggleMinimumLatency->IsOn);
-	*/
-	//props.IsLowLatency = m_IsMinimumLatency;
+	props.Frequency = (DWORD)frequency;
+	
 	props.IsHWOffload = false;
 	props.IsBackground = false;
-	//props.IsRawChosen = static_cast<Platform::Boolean>(toggleRawAudio->IsOn);
-	//props.IsRawSupported = m_deviceSupportsRawMode;
 
 	Renderer->SetProperties(props);
 	
