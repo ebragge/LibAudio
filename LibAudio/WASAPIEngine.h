@@ -35,7 +35,8 @@ namespace LibAudio
 		
 	private:
 		IAsyncAction^ InitializeCaptureAsync(UIDelegate1^ func1, UIDelegate2^ func2, AudioDevices^ devParams, AudioParameters^ params);
-		std::vector<WASAPIDevice^> m_deviceList;
+		std::vector<WASAPIDevice^> m_captureDeviceList;
+		std::vector<WASAPIDevice^> m_rendererDeviceList;
 		DataCollector^	m_collector;
 		DataConsumer^	m_consumer;
 	};

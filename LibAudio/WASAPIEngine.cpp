@@ -5,7 +5,8 @@ using namespace concurrency;
 
 WASAPIEngine::WASAPIEngine()
 {
-	m_deviceList = std::vector<WASAPIDevice^>();
+	m_captureDeviceList = std::vector<WASAPIDevice^>();
+	m_rendererDeviceList = std::vector<WASAPIDevice^>();
 	m_collector = nullptr;
 	m_consumer = nullptr;
 	HRESULT hr = MFStartup(MF_VERSION, MFSTARTUP_LITE);
@@ -61,7 +62,7 @@ IAsyncAction^ WASAPIEngine::InitializeCaptureAsync(UIDelegate1^ func1, UIDelegat
 							auto device = ref new WASAPIDevice();
 							device->Name = DeviceInfoString;
 							device->ID = DeviceIdString;
-							m_deviceList.push_back(device);
+							m_captureDeviceList.push_back(device);
 							OutputDebugString(device->Name->Data());
 							OutputDebugString(device->ID->Data());
 							OutputDebugString(L"\n");
@@ -73,15 +74,15 @@ IAsyncAction^ WASAPIEngine::InitializeCaptureAsync(UIDelegate1^ func1, UIDelegat
 		})
 		.then([this, func1, func2, devParams, params]()
 		{
-			if (m_deviceList.size() >= devParams->Devices()) 
+			if (m_captureDeviceList.size() >= devParams->Devices()) 
 			{
 				m_collector = ref new DataCollector(devParams->Devices());
-				for (size_t i = 0; i < m_deviceList.size(); i++)
+				for (size_t i = 0; i < m_captureDeviceList.size(); i++)
 				{
-					auto index = devParams->GetIndex(m_deviceList[i]->ID, i);
+					auto index = devParams->GetIndex(m_captureDeviceList[i]->ID, i);
 					if (index != -1)
 					{
-						m_deviceList[i]->InitCaptureDevice(index, m_collector);
+						m_captureDeviceList[i]->InitCaptureDevice(index, m_collector);
 					}
 				}
 				m_consumer = ref new DataConsumer(devParams->Devices(), m_collector, func1, func2, devParams, params);
@@ -137,7 +138,7 @@ IAsyncAction^ WASAPIEngine::InitializeRendererAsync(AudioDevices^ devParams, Aud
 							auto device = ref new WASAPIDevice();
 							device->Name = DeviceInfoString;
 							device->ID = DeviceIdString;
-							m_deviceList.push_back(device);
+							m_rendererDeviceList.push_back(device);
 							OutputDebugString(device->Name->Data());
 							OutputDebugString(device->ID->Data());
 							OutputDebugString(L"\n");
@@ -149,15 +150,15 @@ IAsyncAction^ WASAPIEngine::InitializeRendererAsync(AudioDevices^ devParams, Aud
 		})
 		.then([this, devParams, params]()
 		{
-			if (m_deviceList.size() >= devParams->Devices()) 
+			if (m_rendererDeviceList.size() >= devParams->Devices()) 
 			{
 				m_collector = ref new DataCollector(devParams->Devices());
-				for (size_t i = 0; i < m_deviceList.size(); i++)
+				for (size_t i = 0; i < m_rendererDeviceList.size(); i++)
 				{
-					auto index = devParams->GetIndex(m_deviceList[i]->ID, i);
+					auto index = devParams->GetIndex(m_rendererDeviceList[i]->ID, i);
 					if (index != -1)
 					{
-						m_deviceList[i]->InitRendererDevice(index, nullptr);
+						m_rendererDeviceList[i]->InitRendererDevice(index, nullptr);
 					}
 				}
 			}
@@ -251,13 +252,22 @@ void WASAPIEngine::Finish()
 		m_consumer = nullptr;
 	}
 
-	for (size_t i = 0; i < m_deviceList.size(); i++)
+	for (size_t i = 0; i < m_captureDeviceList.size(); i++)
 	{
-		if (m_deviceList[i]->Initialized())
+		if (m_captureDeviceList[i]->Initialized())
 		{
-			m_deviceList[i]->StopAsync();
+			m_captureDeviceList[i]->StopAsync();
 		}		
-		m_deviceList[i] = nullptr;
+		m_captureDeviceList[i] = nullptr;
+	}
+
+	for (size_t i = 0; i < m_rendererDeviceList.size(); i++)
+	{
+		if (m_rendererDeviceList[i]->Initialized())
+		{
+			m_rendererDeviceList[i]->StopAsync();
+		}
+		m_rendererDeviceList[i] = nullptr;
 	}
 
 	if (m_collector != nullptr)
